@@ -1,481 +1,604 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deteksi Objek Kepadatan Kendaraan</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-    <header class="header">
-        <div class="main-container">
-            <div class="header-top">
-                <h1 class="header-title">Projek Utama Informatika</h1>
-                <button id="themeToggle" class="theme-toggle" aria-label="Toggle dark mode">
-                    <span class="theme-icon dark-icon">🌙</span>
-                    <span class="theme-icon light-icon">☀️</span>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Traffic Vehicle Detection - YOLOv11</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+      .video-container {
+        position: relative;
+        padding-bottom: 56.25%; /* 16:9 aspect ratio */
+        height: 0;
+        overflow: hidden;
+      }
+      .video-container video,
+      .video-container canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .detection-box {
+        position: absolute;
+        border: 2px solid #3b82f6;
+        background-color: rgba(59, 130, 246, 0.2);
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        color: white;
+        font-weight: bold;
+        font-size: 12px;
+      }
+      .pulse-animation {
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+        }
+        70% {
+          box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+        }
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-blue-600 text-white shadow-lg sticky top-0 z-50">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16 items-center">
+          <div class="flex items-center">
+            <i class="fas fa-car-alt text-2xl mr-2"></i>
+            <span class="text-xl font-bold">TrafficVision</span>
+          </div>
+          <div class="hidden md:block">
+            <div class="ml-10 flex items-baseline space-x-4">
+              <a href="#" class="px-3 py-2 rounded-md text-sm font-medium bg-blue-700">Home</a>
+              <a href="#" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-500">About</a>
+              <a href="#" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-500">API</a>
+              <a href="#" class="px-3 py-2 rounded-md text-sm font-medium hover:bg-blue-500">Contact</a>
+            </div>
+          </div>
+          <div class="-mr-2 flex md:hidden">
+            <button type="button" class="inline-flex items-center justify-center p-2 rounded-md text-white hover:bg-blue-500 focus:outline-none" aria-controls="mobile-menu" aria-expanded="false">
+              <span class="sr-only">Open main menu</span>
+              <i class="fas fa-bars"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <div class="bg-gradient-to-r from-blue-500 to-blue-700 text-white py-16">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="md:flex md:items-center md:justify-between">
+          <div class="md:w-1/2 mb-8 md:mb-0">
+            <h1 class="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl mb-4">Real-time Traffic Vehicle Detection</h1>
+            <p class="text-xl mb-8">Powered by YOLOv11 deep learning model for accurate and fast vehicle detection in traffic scenarios.</p>
+            <div class="flex space-x-4">
+              <button class="bg-transparent border-2 border-white px-6 py-3 rounded-lg font-bold hover:bg-white hover:text-blue-600 transition duration-300 flex items-center"><i class="fas fa-info-circle mr-2"></i> Learn More</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="bg-gray-50 py-16">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+          <h2 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">Process Your Own Video</h2>
+          <p class="mt-4 max-w-2xl text-xl text-gray-500 mx-auto">Upload a video file to detect vehicles.</p>
+        </div>
+        <div class="mt-8 max-w-md mx-auto">
+          <form action="/upload" method="post" enctype="multipart/form-data" class="bg-white p-8 rounded-xl shadow-xl space-y-6">
+            <div>
+              <label for="video-upload" class="block text-sm font-medium text-gray-700">Video File</label>
+              <div class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                <div class="space-y-1 text-center">
+                  <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                    <path
+                      d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                  <div class="flex text-sm text-gray-600">
+                    <label
+                      for="video-upload"
+                      class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
+                    >
+                      <span>Upload a file</span>
+                      <input id="video-upload" name="video" type="file" class="sr-only" accept="video/*" />
+                    </label>
+                    <p class="pl-1">or drag and drop</p>
+                  </div>
+                  <p class="text-xs text-gray-500">MP4, AVI, MOV up to 500MB</p>
+                </div>
+              </div>
+            </div>
+            <button id="startDetection" type="submit" class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 transition duration-300 flex items-center justify-center pulse-animation">
+              <i class="fas fa-play mr-2"></i> Start Detection
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats Section -->
+    <div class="bg-white py-12">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div class="bg-blue-50 p-6 rounded-xl text-center">
+            <div class="text-blue-600 text-4xl mb-2">
+              <i class="fas fa-bolt"></i>
+            </div>
+            <h3 class="text-lg font-bold mb-2">Real-time Processing</h3>
+            <p class="text-gray-600">Processes video feed at 30+ FPS using optimized YOLOv11 model</p>
+          </div>
+          <div class="bg-blue-50 p-6 rounded-xl text-center">
+            <div class="text-blue-600 text-4xl mb-2">
+              <i class="fas fa-car"></i>
+            </div>
+            <h3 class="text-lg font-bold mb-2">20+ Vehicle Classes</h3>
+            <p class="text-gray-600">Detects cars, trucks, buses, motorcycles, and more with high accuracy</p>
+          </div>
+          <div class="bg-blue-50 p-6 rounded-xl text-center">
+            <div class="text-blue-600 text-4xl mb-2">
+              <i class="fas fa-cloud"></i>
+            </div>
+            <h3 class="text-lg font-bold mb-2">Cloud Integration</h3>
+            <p class="text-gray-600">Optional cloud processing for historical data and analytics</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detection Section -->
+    <div class="bg-gray-50 py-16">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center mb-12">
+          <h2 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">Vehicle Detection Dashboard</h2>
+          <p class="mt-4 max-w-2xl text-xl text-gray-500 mx-auto">Monitor and analyze traffic patterns in real-time</p>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-xl overflow-hidden">
+          <div class="md:flex">
+            <div class="md:w-2/3 p-4">
+              <div class="video-container">
+                <video id="mainVideoFeed" autoplay muted playsinline class="bg-gray-800"></video>
+                <canvas id="mainDetectionCanvas"></canvas>
+              </div>
+            </div>
+            <div class="md:w-1/3 bg-gray-100 p-6">
+              <h3 class="text-xl font-bold mb-4">Detection Statistics</h3>
+
+              <div class="mb-6">
+                <div class="flex justify-between mb-2">
+                  <span class="font-medium">Detection Confidence</span>
+                  <span class="font-bold" id="avgConfidence">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                  <div id="confidenceBar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="bg-white p-3 rounded-lg shadow text-center">
+                  <div class="text-2xl font-bold text-blue-600" id="vehicleCount">0</div>
+                  <div class="text-sm text-gray-500">Vehicles Detected</div>
+                </div>
+                <div class="bg-white p-3 rounded-lg shadow text-center">
+                  <div class="text-2xl font-bold text-blue-600" id="fpsCounter">0</div>
+                  <div class="text-sm text-gray-500">Frames Per Second</div>
+                </div>
+              </div>
+
+              <div class="mb-6">
+                <h4 class="font-medium mb-2">Vehicle Class Distribution</h4>
+                <div id="classDistribution" class="space-y-2">
+                  <!-- Will be populated by JavaScript -->
+                  <div class="text-sm">No detections yet</div>
+                </div>
+              </div>
+
+              <div class="space-y-4">
+                <button id="toggleDetection" class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition flex items-center justify-center"><i class="fas fa-pause mr-2"></i> Pause Detection</button>
+                <button id="captureFrame" class="w-full bg-white border border-blue-600 text-blue-600 py-2 px-4 rounded-lg hover:bg-blue-50 transition flex items-center justify-center">
+                  <i class="fas fa-camera mr-2"></i> Capture Frame
                 </button>
+                <button id="toggleSource" class="w-full bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition flex items-center justify-center"><i class="fas fa-exchange-alt mr-2"></i> Switch to Webcam</button>
+              </div>
             </div>
-            <p class="header-subtitle">Analisis kepadatan kendaraan  </p>
+          </div>
         </div>
-    </header>
-
-    <main class="main-container">
-        <section class="upload-section">
-            <div class="upload-card">
-                <h2 class="upload-title">Unggah File Video</h2>
-                <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data" class="form">
-                    <fieldset class="form-fieldset">
-                        <legend class="form-legend">Pilih Video</legend>
-                        <div class="form-group">
-                            <label for="fileInput" class="form-label">Pilih file video (MP4, AVI, MOV):</label>
-                            <div class="file-input-wrapper">
-                                <input type="file" name="video" id="fileInput" accept=".mp4,.avi,.mov" class="file-input" aria-describedby="fileHelp">
-                                <span class="file-name">Belum ada file yang dipilih</span>
-                            </div>
-                            <p id="fileHelp" class="form-help">Ukuran file maksimal: 100MB</p>
-                        </div>
-                        <div class="form-group">
-                            <label for="progressBar" class="form-label">Progres Unggah:</label>
-                            <div id="progressBar" class="progress-bar hidden" aria-describedby="progressStatus">
-                                <div id="progress" class="progress"></div>
-                            </div>
-                            <p id="progressStatus" class="form-help"></p>
-                        </div>
-                        <div class="form-actions">
-                            <button type="submit" class="upload-button">Unggah dan Proses</button>
-                        </div>
-                    </fieldset>
-                </form>
-                <p id="uploadStatus" class="upload-status"></p>
-            </div>
-        </section>
-
-        <section class="filter-container">
-            <input type="text" id="searchInput" placeholder="Cari berdasarkan label (misal: mobil, truk)..." class="search-input">
-            <select id="sortSelect" class="sort-select">
-                <option value="newest">Urutkan berdasarkan: Terbaru</option>
-                <option value="detections">Urutkan berdasarkan: Jumlah Deteksi</option>
-            </select>
-        </section>
-
-        <section>
-            <h2 class="upload-title">Media yang Diproses</h2>
-            <div id="mediaGrid" class="media-grid"></div>
-            <p id="noResults" class="hidden upload-status">Tidak ada hasil yang cocok dengan filter Anda.</p>
-        </section>
-    </main>
-
-    <div id="modal" class="modal">
-        <div class="modal-content">
-            <button onclick="closeModal()" class="modal-close">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-            <div id="modalContent" class="mt-4"></div>
-        </div>
+      </div>
     </div>
 
-    <div id="editModal" class="modal">
-        <div class="modal-content">
-            <button onclick="closeEditModal()" class="modal-close">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-            <h3 class="modal-title">Edit Metadata Video</h3>
-            <form id="editForm" class="form">
-                <fieldset class="form-fieldset">
-                    <legend class="form-legend">Detail Metadata</legend>
-                    <input type="hidden" id="editVideoId"> <div class="form-group">
-                        <label for="editLabels" class="form-label">Label (dipisahkan koma):</label>
-                        <input type="text" id="editLabels" class="form-input" placeholder="misal: mobil, truk" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="editDetectionCount" class="form-label">Jumlah Deteksi:</label>
-                        <input type="number" id="editDetectionCount" class="form-input" min="0" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="editAverageConfidence" class="form-label">Rata-rata Kepercayaan (0-1):</label>
-                        <input type="number" id="editAverageConfidence" class="form-input" step="0.01" min="0" max="1" required>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="submit-button">Simpan Perubahan</button>
-                        <button type="button" class="cancel-button" onclick="closeEditModal()">Batal</button>
-                    </div>
-                </fieldset>
-            </form>
-            <p id="editStatus" class="upload-status"></p>
+    <!-- How It Works Section -->
+    <div class="bg-white py-16">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="lg:text-center">
+          <h2 class="text-3xl font-extrabold text-gray-900 sm:text-4xl">How It Works</h2>
+          <p class="mt-4 max-w-2xl text-xl text-gray-500 lg:mx-auto">The technology behind our vehicle detection system</p>
         </div>
+
+        <div class="mt-20">
+          <div class="space-y-10 md:space-y-0 md:grid md:grid-cols-3 md:gap-x-8 md:gap-y-10">
+            <div class="relative">
+              <div class="absolute flex items-center justify-center h-12 w-12 rounded-md bg-blue-500 text-white">
+                <i class="fas fa-video"></i>
+              </div>
+              <div class="ml-16">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Video Input</h3>
+                <p class="mt-2 text-base text-gray-500">The system accepts live video feed from traffic cameras, webcams, or uploaded video files.</p>
+              </div>
+            </div>
+
+            <div class="relative">
+              <div class="absolute flex items-center justify-center h-12 w-12 rounded-md bg-blue-500 text-white">
+                <i class="fas fa-brain"></i>
+              </div>
+              <div class="ml-16">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">YOLOv11 Processing</h3>
+                <p class="mt-2 text-base text-gray-500">Our optimized YOLOv11 model processes each frame to detect vehicles with high accuracy.</p>
+              </div>
+            </div>
+
+            <div class="relative">
+              <div class="absolute flex items-center justify-center h-12 w-12 rounded-md bg-blue-500 text-white">
+                <i class="fas fa-chart-line"></i>
+              </div>
+              <div class="ml-16">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Results Visualization</h3>
+                <p class="mt-2 text-base text-gray-500">Detected vehicles are highlighted with bounding boxes and classified in real-time.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <footer class="footer">
-        <div class="main-container">
-            <p class="footer-text">© 2025 Aplikasi Deteksi Objek YOLOv11. Semua hak dilindungi.</p>
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-12">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div>
+            <h3 class="text-lg font-bold mb-4">TrafficVision</h3>
+            <p class="text-gray-400">Advanced vehicle detection system powered by YOLOv11 for traffic monitoring and analysis.</p>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold mb-4">Quick Links</h3>
+            <ul class="space-y-2">
+              <li><a href="#" class="text-gray-400 hover:text-white">Home</a></li>
+              <li><a href="#" class="text-gray-400 hover:text-white">API Documentation</a></li>
+              <li><a href="#" class="text-gray-400 hover:text-white">GitHub Repository</a></li>
+              <li><a href="#" class="text-gray-400 hover:text-white">Research Paper</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold mb-4">Resources</h3>
+            <ul class="space-y-2">
+              <li><a href="#" class="text-gray-400 hover:text-white">YOLOv11 Paper</a></li>
+              <li><a href="#" class="text-gray-400 hover:text-white">Flask Documentation</a></li>
+              <li><a href="#" class="text-gray-400 hover:text-white">OpenCV Guide</a></li>
+              <li><a href="#" class="text-gray-400 hover:text-white">Model Weights</a></li>
+            </ul>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold mb-4">Contact</h3>
+            <ul class="space-y-2">
+              <li class="flex items-center text-gray-400"><i class="fas fa-envelope mr-2"></i> contact@trafficvision.ai</li>
+              <li class="flex items-center text-gray-400"><i class="fas fa-phone mr-2"></i> +1 (555) 123-4567</li>
+              <li class="flex items-center text-gray-400"><i class="fas fa-map-marker-alt mr-2"></i> San Francisco, CA</li>
+            </ul>
+          </div>
         </div>
+        <div class="mt-12 pt-8 border-t border-gray-700 text-center text-gray-400">
+          <p>&copy; 2023 TrafficVision. All rights reserved.</p>
+        </div>
+      </div>
     </footer>
 
     <script>
-        // Fungsionalitas Pengalihan Tema
-        const themeToggle = document.getElementById('themeToggle');
-        const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
-        // Ambil tema dari localStorage atau tentukan berdasarkan preferensi sistem
-        const currentTheme = localStorage.getItem('theme') || (prefersDarkScheme.matches ? 'dark' : 'light');
-        if (currentTheme === 'dark') {
-            document.body.classList.add('dark-mode');
-        }
+      // This is a mock implementation since actual YOLOv11 integration would require Flask backend
+      // In a real implementation, you would need to:
+      // 1. Set up Flask routes to handle video streaming and processing
+      // 2. Implement YOLOv11 model loading and inference
+      // 3. Create WebSocket or SSE for real-time updates
 
-        // Tambahkan event listener untuk tombol pengalihan tema
-        themeToggle.addEventListener('click', () => {
-            const isDark = document.body.classList.toggle('dark-mode'); // Toggle kelas 'dark-mode'
-            localStorage.setItem('theme', isDark ? 'dark' : 'light'); // Simpan preferensi tema
+      document.addEventListener('DOMContentLoaded', function () {
+        const videoFeed = document.getElementById('videoFeed');
+        const mainVideoFeed = document.getElementById('mainVideoFeed');
+        const detectionCanvas = document.getElementById('detectionCanvas');
+        const mainDetectionCanvas = document.getElementById('mainDetectionCanvas');
+        const startDetectionBtn = document.getElementById('startDetection');
+        const toggleDetectionBtn = document.getElementById('toggleDetection');
+        const captureFrameBtn = document.getElementById('captureFrame');
+        const toggleSourceBtn = document.getElementById('toggleSource');
+        const vehicleCountEl = document.getElementById('vehicleCount');
+        const fpsCounterEl = document.getElementById('fpsCounter');
+        const avgConfidenceEl = document.getElementById('avgConfidence');
+        const confidenceBar = document.getElementById('confidenceBar');
+        const classDistributionEl = document.getElementById('classDistribution');
+
+        let isDetecting = false;
+        let isPaused = false;
+        let useWebcam = false;
+        let lastTimestamp = 0;
+        let frameCount = 0;
+        let fps = 0;
+
+        // Mock vehicle classes for demo
+        const vehicleClasses = ['car', 'truck', 'bus', 'motorcycle', 'bicycle', 'van', 'pickup', 'suv', 'trailer', 'emergency'];
+
+        // Mock colors for different classes
+        const classColors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#84CC16', '#6366F1'];
+
+        // Start detection button click handler
+        startDetectionBtn.addEventListener('click', function () {
+          if (!isDetecting) {
+            startDetection();
+            startDetectionBtn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i> Restart Detection';
+            startDetectionBtn.classList.remove('pulse-animation');
+          } else {
+            // Restart detection
+            stopDetection();
+            startDetection();
+          }
         });
 
-        // Perbarui tampilan nama file saat file dipilih
-        document.getElementById('fileInput').addEventListener('change', function() {
-            const fileName = this.files[0]?.name || 'Belum ada file yang dipilih';
-            document.querySelector('.file-name').textContent = fileName;
+        // Toggle detection pause/resume
+        toggleDetectionBtn.addEventListener('click', function () {
+          isPaused = !isPaused;
+          if (isPaused) {
+            toggleDetectionBtn.innerHTML = '<i class="fas fa-play mr-2"></i> Resume Detection';
+          } else {
+            toggleDetectionBtn.innerHTML = '<i class="fas fa-pause mr-2"></i> Pause Detection';
+          }
         });
 
-        // Fungsi untuk mendapatkan tipe MIME dari ekstensi file
-        function getMimeType(extension) {
-            const mimeTypes = {
-                'mp4': 'video/mp4',
-                'avi': 'video/x-msvideo',
-                'mov': 'video/quicktime'
-            };
-            return mimeTypes[extension.toLowerCase()] || 'video/mp4';
-        }
+        // Capture frame button
+        captureFrameBtn.addEventListener('click', function () {
+          if (isDetecting) {
+            const link = document.createElement('a');
+            link.download = 'traffic-detection-' + new Date().toISOString() + '.png';
+            link.href = mainDetectionCanvas.toDataURL('image/png');
+            link.click();
 
-        // Array global untuk menyimpan semua data video yang diproses
-        let allProcessedVideos = [];
-
-        // Fungsi untuk merender satu kartu media
-        function renderMediaCard(videoData) {
-            const mediaCard = document.createElement('div');
-            mediaCard.className = 'media-card';
-            mediaCard.dataset.id = videoData.id;
-            mediaCard.dataset.labels = videoData.metadata.labels.join(',').toLowerCase();
-            mediaCard.dataset.detections = videoData.metadata.detection_count;
-
-            const mimeType = videoData.processed_file_mime_type;
-
-            mediaCard.innerHTML = `
-                <div class="media-preview-wrapper">
-                    <video class="media-preview"
-                           onclick="openModal('${videoData.original_url}', '${videoData.result_url}', '${mimeType}')"
-                           preload="metadata">
-                        <source src="${videoData.result_url}" type="${mimeType}">
-                        Browser Anda tidak mendukung tag video.
-                    </video>
-                </div>
-                <div class="media-content">
-                    <h3 class="media-title">${videoData.original_filename}</h3>
-                    <div class="media-details">
-                        <p><strong>Label:</strong> ${videoData.metadata.labels.join(', ') || 'Tidak ada'}</p>
-                        <p><strong>Deteksi:</strong> ${videoData.metadata.detection_count}</p>
-                        ${videoData.metadata.average_confidence ? `<p><strong>Rata-rata Kepercayaan:</strong> ${videoData.metadata.average_confidence.toFixed(2)}</p>` : ''}
-                    </div>
-                    <div class="card-actions">
-                        <button class="action-button edit-button" onclick="openEditModal('${videoData.id}')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                            Edit
-                        </button>
-                        <button class="action-button delete-button" onclick="confirmDelete('${videoData.id}', '${videoData.original_filename}')">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                            Hapus
-                        </button>
-                    </div>
-                </div>
-            `;
-            return mediaCard;
-        }
-
-        // Ambil video dari API saat halaman dimuat
-        async function fetchVideos() {
-            try {
-                const response = await fetch('/videos');
-                const data = await response.json();
-                if (data.success) {
-                    allProcessedVideos = data.videos;
-                    filterAndSort(); // Panggil fungsi filter dan sort untuk menampilkan video
-                } else {
-                    console.error('Gagal mengambil video:', data.error);
-                }
-            } catch (error) {
-                console.error('Error saat mengambil video:', error);
-            }
-        }
-
-        // Panggil fetchVideos saat DOM selesai dimuat
-        document.addEventListener('DOMContentLoaded', fetchVideos);
-
-        // Unggah AJAX dengan Progress Bar
-        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-            e.preventDefault(); // Mencegah pengiriman form default
-            const fileInput = document.getElementById('fileInput');
-            const progressBar = document.getElementById('progressBar');
-            const progress = document.getElementById('progress');
-            const uploadStatus = document.getElementById('uploadStatus');
-            const progressStatus = document.getElementById('progressStatus');
-
-            if (!fileInput.files.length) {
-                uploadStatus.textContent = 'Harap pilih file.';
-                return;
-            }
-
-            progressBar.classList.remove('hidden'); // Tampilkan progress bar
-            progress.style.width = '0%'; // Reset progress
-            uploadStatus.textContent = 'Mengunggah dan memproses...';
-            progressStatus.textContent = 'Memulai unggahan...';
-            const formData = new FormData(document.getElementById('uploadForm')); // Buat FormData dari form
-
-            try {
-                const xhr = new XMLHttpRequest(); // Buat objek XMLHttpRequest
-                xhr.open('POST', window.location.origin + '/upload', true); // Konfigurasi permintaan POST
-
-                // Event listener untuk progres unggahan
-                xhr.upload.onprogress = (event) => {
-                    if (event.lengthComputable) {
-                        const percent = (event.loaded / event.total) * 100;
-                        progress.style.width = `${percent}%`; // Perbarui lebar progress bar
-                        progressStatus.textContent = `Mengunggah: ${percent.toFixed(0)}%`; // Tampilkan persentase
-                    }
-                };
-
-                // Event listener saat unggahan selesai
-                xhr.onload = () => {
-                    progressBar.classList.add('hidden'); // Sembunyikan progress bar
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        const response = JSON.parse(xhr.responseText); // Parse respons JSON
-                        if (response.success) {
-                            // Tampilkan hasil unggahan
-                            uploadStatus.innerHTML = `
-                                <div class="upload-result">
-                                    <strong>Unggah Berhasil!</strong><br>
-                                    <p><strong>File:</strong> ${response.original_filename}</p>
-                                    <p><strong>Label:</strong> ${response.metadata.labels.join(', ') || 'Tidak ada'}</p>
-                                    <p><strong>Deteksi:</strong> ${response.metadata.detection_count}</p>
-                                    ${response.metadata.average_confidence ? `<p><strong>Rata-rata Kepercayaan:</strong> ${response.metadata.average_confidence.toFixed(2)}</p>` : ''}
-                                </div>
-                            `;
-                            progressStatus.textContent = '';
-                            allProcessedVideos.unshift(response); // Tambahkan video baru ke awal array
-                            filterAndSort(); // Perbarui tampilan grid
-                            fileInput.value = ''; // Reset input file
-                            document.querySelector('.file-name').textContent = 'Belum ada file yang dipilih';
-                            setTimeout(() => {
-                                uploadStatus.innerHTML = ''; // Hapus status setelah 5 detik
-                            }, 5000);
-                        } else {
-                            uploadStatus.textContent = `Error: ${response.error}`;
-                            progressStatus.textContent = '';
-                        }
-                    } else {
-                        uploadStatus.textContent = `Unggahan gagal: Server merespons dengan status ${xhr.status}`;
-                        progressStatus.textContent = '';
-                    }
-                };
-
-                // Event listener untuk error jaringan
-                xhr.onerror = () => {
-                    progressBar.classList.add('hidden');
-                    uploadStatus.textContent = 'Unggahan gagal: Tidak dapat terhubung ke server.';
-                    progressStatus.textContent = '';
-                };
-
-                xhr.send(formData); // Kirim FormData
-            } catch (error) {
-                progressBar.classList.add('hidden');
-                uploadStatus.textContent = `Error: ${error.message}`;
-                progressStatus.textContent = '';
-            }
+            // Show notification
+            showNotification('Frame captured successfully!', 'success');
+          }
         });
 
-        // Fungsi Filter dan Pengurutan
-        const searchInput = document.getElementById('searchInput');
-        const sortSelect = document.getElementById('sortSelect');
-        const mediaGrid = document.getElementById('mediaGrid');
-        const noResults = document.getElementById('noResults');
+        // Toggle video source
+        toggleSourceBtn.addEventListener('click', function () {
+          useWebcam = !useWebcam;
+          if (useWebcam) {
+            toggleSourceBtn.innerHTML = '<i class="fas fa-exchange-alt mr-2"></i> Switch to Sample Video';
+            showNotification('Switched to webcam feed', 'info');
+          } else {
+            toggleSourceBtn.innerHTML = '<i class="fas fa-exchange-alt mr-2"></i> Switch to Webcam';
+            showNotification('Switched to sample traffic video', 'info');
+          }
 
-        function filterAndSort() {
-            const search = searchInput.value.toLowerCase();
-            const sortBy = sortSelect.value;
-            let visibleVideos = [...allProcessedVideos]; // Buat salinan array
+          // Restart detection with new source
+          if (isDetecting) {
+            stopDetection();
+            startDetection();
+          }
+        });
 
-            // Filter berdasarkan pencarian label
-            if (search) {
-                visibleVideos = visibleVideos.filter(video =>
-                    video.metadata.labels.some(label => label.toLowerCase().includes(search))
-                );
+        function startDetection() {
+          isDetecting = true;
+          isPaused = false;
+
+          // In a real implementation, you would connect to Flask video feed here
+          // For demo purposes, we'll use a sample video and mock detections
+
+          if (useWebcam) {
+            // Try to access webcam
+            navigator.mediaDevices
+              .getUserMedia({ video: true })
+              .then(function (stream) {
+                videoFeed.srcObject = stream;
+                mainVideoFeed.srcObject = stream;
+              })
+              .catch(function (err) {
+                console.error('Error accessing webcam:', err);
+                showNotification('Could not access webcam. Using sample video instead.', 'error');
+                useWebcam = false;
+                toggleSourceBtn.innerHTML = '<i class="fas fa-exchange-alt mr-2"></i> Switch to Webcam';
+                loadSampleVideo();
+              });
+          } else {
+            loadSampleVideo();
+          }
+
+          // Set up canvas
+          detectionCanvas.classList.remove('hidden');
+          mainDetectionCanvas.classList.remove('hidden');
+
+          // Start mock detection loop
+          requestAnimationFrame(detectVehicles);
+
+          // Start FPS counter
+          setInterval(updateFPS, 1000);
+        }
+
+        function loadSampleVideo() {
+          // Sample traffic video
+          videoFeed.src = 'https://assets.mixkit.co/videos/preview/mixkit-traffic-on-a-highway-from-a-moving-car-38745-large.mp4';
+          mainVideoFeed.src = 'https://assets.mixkit.co/videos/preview/mixkit-traffic-on-a-highway-from-a-moving-car-38745-large.mp4';
+
+          videoFeed.loop = true;
+          mainVideoFeed.loop = true;
+
+          videoFeed.play();
+          mainVideoFeed.play();
+        }
+
+        function stopDetection() {
+          isDetecting = false;
+
+          if (videoFeed.srcObject) {
+            videoFeed.srcObject.getTracks().forEach((track) => track.stop());
+            mainVideoFeed.srcObject.getTracks().forEach((track) => track.stop());
+          }
+
+          videoFeed.src = '';
+          mainVideoFeed.src = '';
+        }
+
+        function detectVehicles(timestamp) {
+          if (!isDetecting) return;
+
+          // Calculate FPS
+          frameCount++;
+
+          if (!isPaused) {
+            // Get video dimensions
+            const video = useWebcam ? videoFeed : mainVideoFeed;
+            const canvas = useWebcam ? detectionCanvas : mainDetectionCanvas;
+            const ctx = canvas.getContext('2d');
+
+            // Set canvas dimensions to match video
+            if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
             }
 
-            // Urutkan video
-            visibleVideos.sort((a, b) => {
-                if (sortBy === 'detections') {
-                    return b.metadata.detection_count - a.metadata.detection_count; // Urutkan berdasarkan jumlah deteksi (menurun)
-                }
-                // Urutkan berdasarkan URL (terbaru, karena URL biasanya memiliki ID yang meningkat)
-                return b.result_url.localeCompare(a.result_url);
+            // Clear previous detections
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw video frame
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Mock detections - in a real app, these would come from Flask/YOLOv11
+            const mockDetections = generateMockDetections(canvas.width, canvas.height);
+
+            // Process detections
+            let totalConfidence = 0;
+            const classCounts = {};
+
+            mockDetections.forEach((det) => {
+              // Draw bounding box
+              ctx.strokeStyle = classColors[det.classId % classColors.length];
+              ctx.lineWidth = 2;
+              ctx.strokeRect(det.x, det.y, det.width, det.height);
+
+              // Draw label background
+              ctx.fillStyle = classColors[det.classId % classColors.length];
+              const textWidth = ctx.measureText(`${vehicleClasses[det.classId]} ${Math.round(det.confidence * 100)}%`).width;
+              ctx.fillRect(det.x - 1, det.y - 20, textWidth + 10, 20);
+
+              // Draw label text
+              ctx.fillStyle = 'white';
+              ctx.font = '12px Arial';
+              ctx.fillText(`${vehicleClasses[det.classId]} ${Math.round(det.confidence * 100)}%`, det.x + 4, det.y - 5);
+
+              // Update stats
+              totalConfidence += det.confidence;
+
+              if (!classCounts[det.classId]) {
+                classCounts[det.classId] = 0;
+              }
+              classCounts[det.classId]++;
             });
 
-            mediaGrid.innerHTML = ''; // Kosongkan grid
-            if (visibleVideos.length > 0) {
-                visibleVideos.forEach(video => mediaGrid.appendChild(renderMediaCard(video))); // Render kartu media
-                noResults.classList.add('hidden'); // Sembunyikan pesan "Tidak ada hasil"
-            } else {
-                noResults.classList.remove('hidden'); // Tampilkan pesan "Tidak ada hasil"
+            // Update UI stats
+            const detectionCount = mockDetections.length;
+            vehicleCountEl.textContent = detectionCount;
+
+            const avgConfidence = detectionCount > 0 ? (totalConfidence / detectionCount) * 100 : 0;
+            avgConfidenceEl.textContent = `${Math.round(avgConfidence)}%`;
+            confidenceBar.style.width = `${avgConfidence}%`;
+
+            // Update class distribution
+            updateClassDistribution(classCounts);
+          }
+
+          // Continue detection loop
+          requestAnimationFrame(detectVehicles);
+        }
+
+        function generateMockDetections(width, height) {
+          const detections = [];
+          const detectionCount = Math.floor(Math.random() * 5) + 1; // 1-5 detections
+
+          for (let i = 0; i < detectionCount; i++) {
+            const classId = Math.floor(Math.random() * vehicleClasses.length);
+            const confidence = 0.7 + Math.random() * 0.3; // 70-100% confidence
+
+            // Random position and size
+            const bboxWidth = 50 + Math.random() * 150;
+            const bboxHeight = 30 + Math.random() * 100;
+            const x = Math.random() * (width - bboxWidth);
+            const y = Math.random() * (height - bboxHeight);
+
+            detections.push({
+              classId,
+              confidence,
+              x,
+              y,
+              width: bboxWidth,
+              height: bboxHeight,
+            });
+          }
+
+          return detections;
+        }
+
+        function updateClassDistribution(classCounts) {
+          let html = '';
+          const total = Object.values(classCounts).reduce((sum, count) => sum + count, 0);
+
+          if (total === 0) {
+            html = '<div class="text-sm">No detections yet</div>';
+          } else {
+            for (const [classId, count] of Object.entries(classCounts)) {
+              const percentage = Math.round((count / total) * 100);
+              const color = classColors[classId % classColors.length];
+
+              html += `
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <div class="w-3 h-3 rounded-full mr-2" style="background-color: ${color};"></div>
+                                    <span>${vehicleClasses[classId]}</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <span class="font-medium mr-2">${percentage}%</span>
+                                    <span class="text-gray-500 text-sm">(${count})</span>
+                                </div>
+                            </div>
+                        `;
             }
+          }
+
+          classDistributionEl.innerHTML = html;
         }
 
-        // Tambahkan event listener untuk input pencarian dan pilihan pengurutan
-        searchInput.addEventListener('input', filterAndSort);
-        sortSelect.addEventListener('change', filterAndSort);
-
-        // Fungsi Modal - Pratinjau Video
-        function openModal(originalUrl, resultUrl, processedMimeType) {
-            const modal = document.getElementById('modal');
-            const modalContent = document.getElementById('modalContent');
-            const originalFileExt = originalUrl.split('.').pop();
-            const originalMimeType = getMimeType(originalFileExt);
-
-            modalContent.innerHTML = `
-                <div class="modal-video-container">
-                    <div class="video-wrapper">
-                        <h3 class="video-title">Video Asli</h3>
-                        <video class="modal-media" controls autoplay loop muted>
-                            <source src="${originalUrl}" type="${originalMimeType}">
-                            Browser Anda tidak mendukung tag video.
-                        </video>
-                    </div>
-                    <div class="video-wrapper">
-                        <h3 class="video-title">Video Hasil Deteksi</h3>
-                        <video class="modal-media" controls autoplay loop muted>
-                            <source src="${resultUrl}" type="${processedMimeType}">
-                            Browser Anda tidak mendukung tag video.
-                        </video>
-                    </div>
-                </div>
-            `;
-            modal.style.display = 'flex'; // Tampilkan modal
-            setTimeout(() => {
-                modal.classList.add('active'); // Tambahkan kelas 'active' untuk transisi
-                modal.querySelector('.modal-content').classList.add('active');
-            }, 10);
+        function updateFPS() {
+          fps = frameCount;
+          frameCount = 0;
+          fpsCounterEl.textContent = fps;
         }
 
-        function closeModal() {
-            const modal = document.getElementById('modal');
-            modal.classList.remove('active'); // Hapus kelas 'active' untuk transisi
-            modal.querySelector('.modal-content').classList.remove('active');
-            setTimeout(() => {
-                modal.style.display = 'none'; // Sembunyikan modal setelah transisi
-                document.getElementById('modalContent').innerHTML = ''; // Kosongkan konten modal
-            }, 300);
+        function showNotification(message, type) {
+          // In a real app, you might use a proper notification library
+          console.log(`${type}: ${message}`);
         }
-
-        // Fungsi Modal - Edit Metadata
-        const editModal = document.getElementById('editModal');
-        const editForm = document.getElementById('editForm');
-        const editVideoId = document.getElementById('editVideoId');
-        const editLabels = document.getElementById('editLabels');
-        const editDetectionCount = document.getElementById('editDetectionCount');
-        const editAverageConfidence = document.getElementById('editAverageConfidence');
-        const editStatus = document.getElementById('editStatus');
-
-        function openEditModal(videoId) {
-            const videoData = allProcessedVideos.find(v => v.id === videoId); // Cari data video
-            if (!videoData) {
-                editStatus.textContent = 'Data video tidak ditemukan untuk diedit.';
-                return;
-            }
-
-            editVideoId.value = videoId;
-            editLabels.value = videoData.metadata.labels.join(', ');
-            editDetectionCount.value = videoData.metadata.detection_count;
-            editAverageConfidence.value = videoData.metadata.average_confidence ? videoData.metadata.average_confidence.toFixed(2) : '';
-            editStatus.textContent = ''; // Bersihkan status sebelumnya
-
-            editModal.style.display = 'flex'; // Tampilkan modal edit
-            setTimeout(() => {
-                editModal.classList.add('active'); // Tambahkan kelas 'active' untuk transisi
-                editModal.querySelector('.modal-content').classList.add('active');
-            }, 10);
-        }
-
-        function closeEditModal() {
-            editModal.classList.remove('active'); // Hapus kelas 'active' untuk transisi
-            editModal.querySelector('.modal-content').classList.remove('active');
-            setTimeout(() => editModal.style.display = 'none', 300); // Sembunyikan modal setelah transisi
-        }
-
-        // Event listener untuk pengiriman form edit
-        editForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const videoId = editVideoId.value;
-            const updatedData = {
-                labels: editLabels.value.split(',').map(label => label.trim()).filter(label => label !== ''),
-                detection_count: parseInt(editDetectionCount.value, 10),
-                average_confidence: parseFloat(editAverageConfidence.value) || 0
-            };
-
-            if (isNaN(updatedData.detection_count)) {
-                editStatus.textContent = 'Jumlah Deteksi harus berupa angka yang valid.';
-                return;
-            }
-
-            editStatus.textContent = 'Menyimpan perubahan...';
-
-            try {
-                const response = await fetch(`/videos/${videoId}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(updatedData)
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    editStatus.textContent = 'Perubahan berhasil disimpan!';
-                    const index = allProcessedVideos.findIndex(v => v.id === videoId);
-                    if (index !== -1) {
-                        allProcessedVideos[index].metadata = data.metadata; // Perbarui metadata di array lokal
-                    }
-                    filterAndSort(); // Perbarui tampilan grid
-                    setTimeout(closeEditModal, 1000); // Tutup modal setelah 1 detik
-                } else {
-                    editStatus.textContent = `Error: ${data.error}`;
-                }
-            } catch (error) {
-                editStatus.textContent = `Error: ${error.message}`;
-            }
-        });
-
-        // Fungsi Hapus Video
-        async function confirmDelete(videoId, originalFilename) {
-            // Menggunakan window.confirm() sebagai placeholder. Dalam aplikasi produksi, gunakan modal kustom.
-            if (confirm(`Apakah Anda yakin ingin menghapus video ini (ID: ${videoId}, File: ${originalFilename})? Tindakan ini tidak dapat dibatalkan.`)) {
-                try {
-                    const response = await fetch(`/videos/${videoId}`, {
-                        method: 'DELETE',
-                    });
-                    const data = await response.json();
-
-                    if (data.success) {
-                        alert(data.message); // Menggunakan window.alert() sebagai placeholder
-                        allProcessedVideos = allProcessedVideos.filter(v => v.id !== videoId); // Hapus video dari array lokal
-                        filterAndSort(); // Perbarui tampilan grid
-                    } else {
-                        alert(`Gagal menghapus video: ${data.error}`); // Menggunakan window.alert() sebagai placeholder
-                    }
-                } catch (error) {
-                    alert(`Error menghapus video: ${error.message}`); // Menggunakan window.alert() sebagai placeholder
-                }
-            }
-        }
+      });
     </script>
-</body>
+  </body>
 </html>
